@@ -1,12 +1,29 @@
 import sys
 import asyncio
+import subprocess
+import os
 
 # [중요] Windows 환경에서 Streamlit + Playwright 사용 시 발생하는 asyncio 충돌 해결
 if sys.platform.startswith("win"):
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
+# [배포 환경 대응] Playwright 브라우저 설치 확인 및 자동 설치
+def install_playwright_browsers():
+    try:
+        # 브라우저가 설치되어 있는지 확인하는 가벼운 방법이 없으므로, 
+        # 단순히 install 명령어를 실행 (이미 설치되어 있으면 빠르게 넘어감)
+        print("🔧 Playwright 브라우저 설치 확인 중...")
+        subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"], check=True)
+        print("✅ Playwright 브라우저 준비 완료")
+    except Exception as e:
+        print(f"⚠️ 브라우저 설치 중 오류 발생 (이미 설치되었을 수 있음): {e}")
+
+# 앱 시작 시 한 번만 실행되도록 함
+if "PLAYWRIGHT_INSTALLED" not in os.environ:
+    install_playwright_browsers()
+    os.environ["PLAYWRIGHT_INSTALLED"] = "1"
+
 import streamlit as st
-import os
 from dotenv import load_dotenv
 from crawler import get_place_id, crawl_naver_reviews
 from analyzer import analyze_reviews
