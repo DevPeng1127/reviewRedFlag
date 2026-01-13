@@ -1,35 +1,44 @@
 import sys
 import asyncio
-import subprocess
-import os
+import subprocess  # [추가됨] 브라우저 설치 명령어를 실행하기 위해 필요
 
 # [중요] Windows 환경에서 Streamlit + Playwright 사용 시 발생하는 asyncio 충돌 해결
 if sys.platform.startswith("win"):
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
-# [배포 환경 대응] Playwright 브라우저 설치 확인 및 자동 설치
-def install_playwright_browsers():
-    try:
-        # 브라우저가 설치되어 있는지 확인하는 가벼운 방법이 없으므로, 
-        # 단순히 install 명령어를 실행 (이미 설치되어 있으면 빠르게 넘어감)
-        print("🔧 Playwright 브라우저 설치 확인 중...")
-        subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"], check=True)
-        print("✅ Playwright 브라우저 준비 완료")
-    except Exception as e:
-        print(f"⚠️ 브라우저 설치 중 오류 발생 (이미 설치되었을 수 있음): {e}")
-
-# 앱 시작 시 한 번만 실행되도록 함
-if "PLAYWRIGHT_INSTALLED" not in os.environ:
-    install_playwright_browsers()
-    os.environ["PLAYWRIGHT_INSTALLED"] = "1"
-
 import streamlit as st
+import os
 from dotenv import load_dotenv
 from crawler import get_place_id, crawl_naver_reviews
 from analyzer import analyze_reviews
 
 # .env 파일에서 환경변수 로드
 load_dotenv()
+
+# ==========================================
+# [추가된 부분] 배포 환경용 브라우저 자동 설치 로직
+# ==========================================
+def install_playwright_browser():
+    """
+    Streamlit Cloud 같은 배포 환경에서는 브라우저가 설치되어 있지 않습니다.
+    앱이 실행될 때 브라우저가 있는지 확인하고, 없으면 설치합니다.
+    """
+    try:
+        # 간단하게 플래그 파일 유무로 설치 여부 확인 (속도 최적화)
+        if not os.path.exists("playwright_installed.flag"):
+            with st.spinner("배포 환경 셋팅 중... (브라우저 설치)"):
+                # 'playwright install chromium' 명령어 실행
+                subprocess.run(["playwright", "install", "chromium"], check=True)
+
+                # 설치 완료 표시 파일 생성
+                with open("playwright_installed.flag", "w") as f:
+                    f.write("installed")
+    except Exception as e:
+        st.error(f"브라우저 설치 중 오류 발생: {e}")
+
+# 앱 실행 시 가장 먼저 브라우저 설치 체크
+install_playwright_browser()
+# ==========================================
 
 # 페이지 설정
 st.set_page_config(
@@ -74,11 +83,11 @@ if st.button("분석 시작", type="primary"):
         st.warning("URL을 입력해주세요!")
     else:
         reviews = []
-        
+
         # 1. URL 분석 및 ID 추출
         with st.spinner("🔍 URL을 분석하고 있습니다..."):
             place_id = get_place_id(url)
-        
+
         if not place_id:
             st.error("❌ 올바른 네이버 플레이스 URL이 아닙니다. 다시 확인해주세요.")
         else:
@@ -95,7 +104,7 @@ if st.button("분석 시작", type="primary"):
                 st.warning("수집된 리뷰가 없습니다. 리뷰가 없는 매장이거나 접근이 제한되었을 수 있습니다.")
             else:
                 st.success(f"✅ {len(reviews)}개의 리뷰 수집 완료!")
-                
+
                 # 3. 분석 단계
                 with st.spinner("🤖 AI가 리뷰를 분석하여 Red Flag를 찾고 있습니다..."):
                     analysis_results = analyze_reviews(reviews)
@@ -154,6 +163,6 @@ if st.button("분석 시작", type="primary"):
                                         st.text(review['content'])
                                         st.divider()
                                         found_evidence = True
-                                
+
                                 if not found_evidence:
                                     st.caption("매칭되는 원본 리뷰를 찾을 수 없습니다.")
