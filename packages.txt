@@ -1,4 +1,6 @@
 chromium
+chromium-driver
+libnspr4
 libnss3
 libx11-xcb1
 libxcb-dri3-0
@@ -7,10 +9,14 @@ libxcursor1
 libxdamage1
 libxi6
 libxtst6
-libnss3
 libxrandr2
 libasound2
 libpangocairo-1.0-0
 libatk1.0-0
 libatk-bridge2.0-0
 libgtk-3-0
+libgbm1
+libxss1
+fonts-liberation
+libappindicator3-1
+xdg-utils
